@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:oauth="http://www.mulesoft.org/schema/mule/oauth" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/oauth http://www.mulesoft.org/schema/mule/oauth/current/mule-oauth.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="b324b4b2-c331-4f32-9ffd-4150168197f4" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<flow name="policy-system-apiFlow" doc:id="4378ab78-c1ef-4603-91c2-b7aecafcbe88" >
+		<http:listener doc:name="Listener" doc:id="b5f9ce3d-ede4-4872-aedf-eb5924511d9e" config-ref="HTTP_Listener_config" path="/policies"/>
+		<ee:transform doc:name="Transform Message" doc:id="e99ac515-764b-49f3-bbb6-a33ccf4ad1a6" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+[
+    {
+        policyId: "POL-1001",
+        policyProvider: "ABC Insurance",
+        policyName: "Secure Health Plus",
+        policyType: "Health",
+        monthlyPremium: 1500,
+        coverageAmount: 1000000,
+        coverageDetails: [
+            "Hospitalization",
+            "Emergency treatment",
+            "Day-care procedures"
+        ],
+        rating: 4.5
+    },
+    {
+        policyId: "POL-1002",
+        policyProvider: "XYZ Insurance",
+        policyName: "Family Health Shield",
+        policyType: "Health",
+        monthlyPremium: 2200,
+        coverageAmount: 1500000,
+        coverageDetails: [
+            "Hospitalization",
+            "Emergency treatment",
+            "Maternity"
+        ],
+        rating: 4.2
+    }
+]]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="policy-system-apiFlow1" doc:id="527b96b4-f341-41e2-8e99-26926cc6e11c" >
+		<http:listener doc:name="Listener" doc:id="0ad5b9aa-baf0-48b3-a74c-f8a620d137c5" config-ref="HTTP_Listener_config" path="/policies/{policyId}" allowedMethods="GET">
+			<http:response statusCode="#[vars.httpstatus default 200]" />
+		</http:listener>
+		<set-variable value='#[[&#10;    {&#10;        policyId: "POL-1001",&#10;        policyProvider: "ABC Insurance",&#10;        policyName: "Secure Health Plus",&#10;        policyType: "Health",&#10;        monthlyPremium: 1500,&#10;        coverageAmount: 1000000,&#10;        coverageDetails: [&#10;            "Hospitalization",&#10;            "Emergency treatment",&#10;            "Day-care procedures"&#10;        ],&#10;        rating: 4.5&#10;    },&#10;    {&#10;        policyId: "POL-1002",&#10;        policyProvider: "XYZ Insurance",&#10;        policyName: "Family Health Shield",&#10;        policyType: "Health",&#10;        monthlyPremium: 2200,&#10;        coverageAmount: 1500000,&#10;        coverageDetails: [&#10;            "Hospitalization",&#10;            "Emergency treatment",&#10;            "Maternity"&#10;        ],&#10;        rating: 4.2&#10;    }&#10;]]' doc:name="Set Variable" doc:id="54fc4faa-1d6a-4b55-9b07-5e5ca45c5bba" variableName="policies"/>
+		<choice doc:name="Choice" doc:id="18b83468-9da5-4c32-bcc7-21d100c1596f" >
+			<when expression='#[sizeOf(&#10;	vars.policies filter ((item) -&gt; &#10;		item.policyId == ((attributes.uriParams.policyId default "") as String)&#10;	)&#10;) &gt; 0]'>
+				<ee:transform doc:name="Transform Message" doc:id="8f32cdb3-5119-43bb-b722-a1438cfb4d43">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+
+---
+
+(vars.policies filter ((item) ->
+	item.policyId == ((attributes.uriParams.policyId default "") as String)
+))[0]   ]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+			</when>
+			<otherwise >
+				<ee:transform doc:name="Transform Message" doc:id="d1a70f13-0444-4f2a-a4f5-c0f121313361" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{ 
+	status: 404,
+	message: "Policy " ++ (attributes.uriparams.policyId default "") ++ " not found"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<set-variable value="404" doc:name="Set Variable" doc:id="844ea133-b64d-405c-9e74-790da93ab9ef" variableName="httpstatus"/>
+			</otherwise>
+		</choice>
+	</flow>
+</mule>
